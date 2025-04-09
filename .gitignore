@@ -1,0 +1,42 @@
+# Django-specific
+*.log
+*.pot
+*.pyc
+*.pyo
+__pycache__/
+db.sqlite3
+db.sqlite3-journal
+*.sqlite3
+
+# Python
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+venv.bak/
+*.env
+*.venv/
+
+# Django migrations
+*/migrations/*
+
+# VS Code
+.vscode/
+
+# pipenv
+Pipfile.lock
+
+# Coverage reports
+.coverage
+.coverage.*
+*.coveragerc
+
+# mypy
+.mypy_cache/
+.dmypy.json
+
+# Pytest
+.cache/
