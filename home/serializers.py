@@ -1,6 +1,6 @@
 from rest_framework import serializers
-from .models import CustomUser, Project
-from django.contrib.auth import authenticate
+from .models import Project, CustomUser, Profile, Task
+# from django.contrib.auth import authenticate
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -28,31 +28,139 @@ class UserSerializer(serializers.ModelSerializer):
         return user
 
 
-class UserLoginSerializer(serializers.Serializer):
-    email = serializers.EmailField()
-    password = serializers.CharField(write_only=True, min_length=8)
+# class UserLoginSerializer(serializers.Serializer):
+#     email = serializers.EmailField()
+#     password = serializers.CharField(write_only=True, min_length=8)
 
-    def validate(self, data):
-        email = data.get('email')
-        password = data.get('password')
+#     def validate(self, data):
+#         email = data.get('email')
+#         password = data.get('password')
 
-        if not email or not password:
-            raise serializers.ValidationError(
-                "Email and password are required."
-                )
-        user = authenticate(email=email, password=password)
-        if not user:
-            raise serializers.ValidationError(
-                "Invalid email or password."
-                )
-        data['user'] = user
-        return data
+#         if not email or not password:
+#             raise serializers.ValidationError(
+#                 "Email and password are required."
+#                 )
+#         user = authenticate(email=email, password=password)
+#         if not user:
+#             raise serializers.ValidationError(
+#                 "Invalid email or password."
+#                 )
+#         data['user'] = user
+#         return data
 
 
 class ProjectSerializer(serializers.ModelSerializer):
-    # manager = serializers.PrimaryKeyRelatedField(read_only=True)
+    current_user_role = serializers.SerializerMethodField()
 
     class Meta:
         model = Project
-        fields = '__all__'
-        read_only_fields = ('manager',)
+        fields = (
+            'id',
+            'current_user_role',
+            'title',
+            'description',
+            'start_date',
+            'end_date',
+        )
+
+    def get_current_user_role(self, obj):
+        user = self.context['request'].user
+        profile = Profile.objects.get(user=user)
+        return profile.role
+
+    def validate(self, attrs):
+        start_date = attrs.get('start_date')
+        end_date = attrs.get('end_date')
+        if start_date and end_date:
+            if start_date > end_date:
+                raise serializers.ValidationError(
+                    "Start date cannot be after end date."
+                )
+        return attrs
+
+
+class ProfileSerializer(serializers.ModelSerializer):
+    user = UserSerializer
+
+    class Meta:
+        model = Profile
+        fields = (
+            'user',
+            'role',
+            'contact',
+        )
+
+
+class TaskSerializer(serializers.ModelSerializer):
+    project = serializers.PrimaryKeyRelatedField(queryset=Project.objects.all()
+                                                 )
+    project_detail = ProjectSerializer(source='project', read_only=True)
+
+    class Meta:
+        model = Task
+        fields = (
+            'id',
+            'title',
+            'description',
+            'project',         # For POST/PUT
+            'project_detail',  # For GET
+            'status',
+        )
+
+
+class AssignSerializer(serializers.ModelSerializer):
+    assignee_id = serializers.IntegerField()
+
+    def validate_assignee_id(self, attrs):
+        try:
+            return Profile.objects.get(id=attrs)
+        except Profile.DoesNotExist:
+            raise serializers.ValidationError(
+                "Assignee does not exist."
+            )
+
+# class ProfileCreateSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = Profile
+#         fields = (
+#             'role',
+#             'contact',
+#         )
+
+
+# class TaskSerializer(serializers.ModelSerializer):
+#     # project = ProjectSerializer()
+#     class Meta:
+#         model = Task
+#         fields = (
+#                 'title',
+#                 'description',
+#                 'project',
+#                 )
+
+
+# class CommentsSerializer(serializers.ModelSerializer):
+
+#     project_title = serializers.CharField(source='project.title')
+#     project_date = serializers.DateField(source='project.start_date')
+#     author_name = serializers.CharField(source='author.email')
+#     task = TaskSerializer()
+
+#     class Meta:
+#         model = Comment
+#         fields = (
+#             "text",
+#             "author_user",
+#             "create_date",
+#             "task",
+#             "project_title",
+#             "project_date",
+
+#             )
+
+
+# class ProjectInfoSerializer(serializers.Serializer):
+#     # get all the projects and count of projects
+
+#     projects = ProjectSerializer(many=True)
+#     count = serializers.IntegerField()
