@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from .models import Project, CustomUser, Profile, Task
+from .models import Project, CustomUser, Profile, Task, Document, Comment
+from .models import TimelineEvent, Notification
 # from django.contrib.auth import authenticate
 
 
@@ -26,27 +27,6 @@ class UserSerializer(serializers.ModelSerializer):
             password=validated_data['password']
         )
         return user
-
-
-# class UserLoginSerializer(serializers.Serializer):
-#     email = serializers.EmailField()
-#     password = serializers.CharField(write_only=True, min_length=8)
-
-#     def validate(self, data):
-#         email = data.get('email')
-#         password = data.get('password')
-
-#         if not email or not password:
-#             raise serializers.ValidationError(
-#                 "Email and password are required."
-#                 )
-#         user = authenticate(email=email, password=password)
-#         if not user:
-#             raise serializers.ValidationError(
-#                 "Invalid email or password."
-#                 )
-#         data['user'] = user
-#         return data
 
 
 class ProjectSerializer(serializers.ModelSerializer):
@@ -95,6 +75,7 @@ class TaskSerializer(serializers.ModelSerializer):
     project = serializers.PrimaryKeyRelatedField(queryset=Project.objects.all()
                                                  )
     project_detail = ProjectSerializer(source='project', read_only=True)
+    assigned_by = serializers.StringRelatedField(read_only=True)
 
     class Meta:
         model = Task
@@ -103,21 +84,46 @@ class TaskSerializer(serializers.ModelSerializer):
             'title',
             'description',
             'project',         # For POST/PUT
-            'project_detail',  # For GET
+            'project_detail',
+            'assigned_by',
             'status',
         )
 
 
-class AssignSerializer(serializers.ModelSerializer):
-    assignee_id = serializers.IntegerField()
+class DocumentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Document
+        fields = '__all__'
 
-    def validate_assignee_id(self, attrs):
-        try:
-            return Profile.objects.get(id=attrs)
-        except Profile.DoesNotExist:
-            raise serializers.ValidationError(
-                "Assignee does not exist."
-            )
+
+class CommentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Comment
+        fields = '__all__'
+        read_only_fields = ['author', 'created_at']
+
+
+class TimelineEventSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TimelineEvent
+        fields = '__all__'
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = ['id', 'message', 'read', 'created_at']
+
+# class AssignSerializer(serializers.ModelSerializer):
+#     assignee_id = serializers.IntegerField()
+
+#     def validate_assignee_id(self, attrs):
+#         try:
+#             return Profile.objects.get(id=attrs)
+#         except Profile.DoesNotExist:
+#             raise serializers.ValidationError(
+#                 "Assignee does not exist."
+#             )
 
 # class ProfileCreateSerializer(serializers.ModelSerializer):
 #     class Meta:

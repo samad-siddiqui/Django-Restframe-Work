@@ -6,10 +6,15 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import viewsets
 from .serializers import ProjectSerializer, ProfileSerializer, TaskSerializer
-from .serializers import AssignSerializer
+from .serializers import DocumentSerializer, CommentSerializer
+from .serializers import TimelineEventSerializer, NotificationSerializer
 # from .utils import get_user_projects
-from .models import Profile, Project, Task
+from .models import Profile, Project, Task, Document, Comment
+from .models import TimelineEvent, Notification
 from rest_framework.decorators import action
+from django.shortcuts import get_object_or_404
+from rest_framework.exceptions import PermissionDenied
+
 # from rest_framework import serializers
 
 
@@ -174,24 +179,31 @@ class TaskViewSet(viewsets.ModelViewSet):
             return Response({
                 "detail": "You do not have permission to create a task."
             }, status=status.HTTP_403_FORBIDDEN)
-
+        # return super().create(request, *args, **kwargs)
+    
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        task = serializer.save(assignee=profile)
+        serializer.save(assignee=profile)
 
-        return Response(self.get_serializer(task).data,
+        return Response(serializer.data,
                         status=status.HTTP_201_CREATED)
+
+    def perform_create(self, serializer):
+        serializer.save(assigned_by=self.request.user)
 
     def update(self, request, *args, **kwargs):
         task = self.get_object()
         user = self.request.user
         profile = Profile.objects.get(user=user)
-        if profile.role != 'manager' or task.assignee != user:
+        if profile.role != 'manager' and task.assignee != user:
             return Response({
                 "detail": "You do not have permission to update this task"
             }, status=status.HTTP_403_FORBIDDEN)
         return super().update(request, *args, **kwargs)
+
+    def perform_update(self, serializer):
+        serializer.save(assigned_by=self.request.user)
 
     def destroy(self, request, *args, **kwargs):
         task = self.get_object()
@@ -211,7 +223,7 @@ class TaskViewSet(viewsets.ModelViewSet):
     def assign(self, request, pk=None):
         task = self.get_object()
         user = request.user
-        profile = user.profile  # Guaranteed to exist due to signal
+        profile = user.profile
 
         if profile.role != "manager":
             return Response({
@@ -244,3 +256,123 @@ class TaskViewSet(viewsets.ModelViewSet):
         return Response({
             "detail": f"Task assigned to {assignee_profile.user.email}."
         }, status=status.HTTP_200_OK)
+
+
+class DocumentViewSet(viewsets.ModelViewSet):
+    document = Document.objects.all()
+    serializer_class = DocumentSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        project_id = self.request.query_params.get('project')
+        if project_id:
+            return self.queryset.filter(project_id=project_id)
+        return self.queryset.none()
+
+    def perform_create(self, serializer):
+        project_id = self.request.data.get('project')
+        project = get_object_or_404(Project, id=project_id)
+        if self.request.user not in project.team_member.all():
+            raise PermissionDenied("You are not part of this project.")
+        serializer.save(project_id=project_id)
+
+
+class CommentViewSet(viewsets.ModelViewSet):
+    task = Task.objects.all()
+    serializer_class = CommentSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_superuser:
+            return Comment.objects.all()
+        else:
+            return Comment.objects.filter(task__project__team_member=user)
+
+    def create(self, request, *args, **kwargs):
+        user = request.user
+        task_id = request.data.get('task')
+
+        if not task_id:
+            return Response(
+                {"detail": "Task ID is required to add a comment."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            task = Task.objects.get(id=task_id)
+        except Task.DoesNotExist:
+            return Response(
+                {"detail": "Task not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        if user.is_superuser or user in task.project.team_member.all():
+            return super().create(request, *args, **kwargs)
+
+        return Response(
+            {
+                "detail": "You don't have permission to add comments."},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    def perform_create(self, serializer):
+        serializer.save(author=self.request.user)
+
+    def update(self, request, *args, **kwargs):
+        task = self.get_object()
+        user = self.request.user
+        if user.is_superuser or user in task.project.team_member.all():
+            return super().update(request, *args, **kwargs)
+        return Response(
+            {"detail": "You do not have permission to update comments."},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    def destroy(self, request, *args, **kwargs):
+        comment = self.get_object()
+        task = comment.task
+        project = task.project
+        user = self.request.user
+        profile = Profile.objects.get(user=user)
+
+        if (
+            user.is_superuser or
+            (profile.role == 'manager' and user in project.team_member.all())
+            or
+            comment.author == user
+        ):
+            return super().destroy(request, *args, **kwargs)
+
+        return Response(
+            {"detail": "You do not have permission to delete this comment."},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+
+class TimelineEventViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = TimelineEventSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_superuser:
+            return TimelineEvent.objects.all().order_by('-created_at')
+        return TimelineEvent.objects.filter(
+            project__team_member=user).order_by('-created_at')
+
+
+class NotificationViewSet(viewsets.ModelViewSet):
+    serializer_class = NotificationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        return Notification.objects.filter(user=user)
+
+    @action(detail=True, methods=['PUT'], url_path='mark_read')
+    def mark_read(self, request, pk=None):
+        notification = self.get_object()
+        notification.read = True
+        notification.save()
+        return Response({'detail': 'Notification marked as read.'})

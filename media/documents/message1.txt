@@ -1,0 +1,189 @@
+# Hospital Schema
+
+### **Hospital Management System (HMS) - Database Schema**
+
+### **Tables and Relationships**
+
+**Patients**
+
+- `patient_id` (PK, INT, AUTO_INCREMENT)
+- `name` (VARCHAR(255))
+- `dob` (DATE)
+- `gender` (ENUM('Male', 'Female', 'Other'))
+- `address` (TEXT)
+- `phone` (VARCHAR(15))
+- `email` (VARCHAR(255))
+- `insurance_id` (FK, INT, UNIQUE) → *One-to-One with Insurance*
+
+**Relations**:
+
+- 1-1 with **Insurance**
+- 1-m with **Appointments**
+- m-m with **Doctors** (via **Patient_Doctor**)
+
+---
+
+**Doctors**
+
+- `doctor_id` (PK, INT, AUTO_INCREMENT)
+- `name` (VARCHAR(255))
+- `specialization` (VARCHAR(255))
+- `phone` (VARCHAR(15))
+- `email` (VARCHAR(255))
+- `department_id` (FK, INT) → *One-to-Many with Department*
+
+**Relations**:
+
+- 1-m with **Appointments**
+- 1-m with **Prescriptions**
+- 1-m with **Surgeries**
+- m-m with **Patients** (via **Patient_Doctor**)
+
+---
+
+**Departments**
+
+- `department_id` (PK, INT, AUTO_INCREMENT)
+- `name` (VARCHAR(255))
+- `head_doctor_id` (FK, INT, UNIQUE) → *One-to-One with Doctor*
+
+**Relations**:
+
+- 1-1 with **Doctors** (head of department)
+- 1-m with **Doctors**
+
+---
+
+**Appointments**
+
+- `appointment_id` (PK, INT, AUTO_INCREMENT)
+- `patient_id` (FK, INT)
+- `doctor_id` (FK, INT)
+- `appointment_date` (DATETIME)
+- `status` (ENUM('Scheduled', 'Completed', 'Cancelled'))
+- `notes` (TEXT)
+
+**Relations**:
+
+- 1-m with **Patients**
+- 1-m with **Doctors**
+
+---
+
+**Prescriptions**
+
+- `prescription_id` (PK, INT, AUTO_INCREMENT)
+- `appointment_id` (FK, INT, UNIQUE)
+- `doctor_id` (FK, INT)
+- `patient_id` (FK, INT)
+- `medicine_details` (TEXT)
+- `instructions` (TEXT)
+
+**Relations**:
+
+- 1-1 with **Appointments**
+- 1-m with **Doctors**
+
+---
+
+**Insurance**
+
+- `insurance_id` (PK, INT, AUTO_INCREMENT)
+- `patient_id` (FK, INT, UNIQUE)
+- `provider` (VARCHAR(255))
+- `policy_number` (VARCHAR(255))
+- `coverage_details` (TEXT)
+
+**Relations**:
+
+- 1-1 with **Patients**
+
+---
+
+**Surgeries**
+
+- `surgery_id` (PK, INT, AUTO_INCREMENT)
+- `patient_id` (FK, INT)
+- `doctor_id` (FK, INT)
+- `surgery_date` (DATETIME)
+- `surgery_type` (VARCHAR(255))
+- `notes` (TEXT)
+
+**Relations**:
+
+- 1-m with **Patients**
+- 1-m with **Doctors**
+
+---
+
+**Patient_Doctor** (*Many-to-Many Table for Patient & Doctor Relationship*)
+
+- `patient_id` (FK, INT)
+- `doctor_id` (FK, INT)
+- `relationship_type` (ENUM('Primary Care', 'Consultation', 'Specialist'))
+
+**Relations**:
+
+- m-m between **Patients** and **Doctors**
+
+## Process
+
+Create a management command to add data in all the above models using faker library
+
+## Queries
+
+1. Retrieve all **appointments** along with their **related patient and doctor** details, but only for appointments scheduled in the **next 7 days**.
+2. Get all **patients** who **do not have insurance** and have had **at least one appointment in the past month**.
+3. Find all **doctors** who have handled **more than 10 appointments** in the last **6 months**.
+4. Update the **appointment status** to `"Missed"` where the **appointment date** is in the past and the **status is still "Scheduled"**.
+5. Calculate the **total cost of all surgeries** for **each patient**, but only for patients who have undergone **more than one surgery**.
+6. Retrieve a list of **distinct insurance providers** that have **at least one active patient**, ordered **alphabetically**.
+7. Find **departments** that have **at least 3 doctors** but **no head doctor assigned**.
+8. Calculate the **total amount billed** for all **patients** who had a **surgery in the last month** and do **not have insurance**.
+9. Retrieve all **patients with their prescriptions**, but only if they had an **appointment in the last 30 days**, and order by the **most recent appointment**.
+10. Increase the **fees** of all **doctors** by **15%** if they have **handled more than 20 appointments in the last year**.
+11. Find the **average age of patients** who have had **at least one surgery** but have **never had an appointment**.
+12. **Bulk create** new **appointments** for all **patients** who have visited **a specific doctor**, ensuring they are not **already scheduled**.
+13. Retrieve the **number of prescriptions written** by each doctor, but only include doctors who have **written at least 5 prescriptions**.
+14. Retrieve **appointments** where the **patient’s insurance provider is "XYZ Insurance"**, but exclude appointments scheduled for **Sunday**.
+15. Update the **priority** of appointments:
+- If **scheduled within 3 days**, set as `"High"`
+- If **between 4-10 days**, set as `"Medium"`
+- Otherwise, set as `"Low"`.
+1. Retrieve a list of **doctor IDs** who have handled **at least 5 surgeries** in the **past year**.
+2. Get a **union** of all **patients who have at least one appointment** and **patients who have at least one surgery**.
+3. Retrieve all **patients who have both an appointment and a prescription**.
+4. Find all **patients who have appointments but no prescriptions**.
+5. Retrieve **all patients with their doctors**, but **only include patients who have visited more than one doctor** and **exclude those who have insurance**.
+6. Get a **list of unique doctor specializations**, ordered **by the number of doctors in each specialization**.
+7. Find **total revenue** generated from **appointments in the last 3 months**, but only from doctors specializing in **Cardiology or Surgery**.
+8. Retrieve all **patients** who have received **at least one prescription** containing the word **"Painkiller"**.
+9. Find all **doctors** who have had **more than 5 patients but less than 15** in the last **year**.
+10. **Bulk create** test **appointments** and then **bulk update** their **status** to `"Completed"` if the **appointment date has passed**.
+11. Find all **patients who have insurance and at least one surgery** using `select_related`, `filter`, and `Q`.
+12. Retrieve all **doctors and count their appointments** using `annotate`, `Count`, and `prefetch_related`.
+13. List all **appointments scheduled in the next 30 days** using `filter` and `order_by`.
+14. Retrieve the **youngest and oldest patient** using `aggregate`, `Min`, and `Max`.
+15. Find **departments with the most doctors** using `annotate`, `Count`, and `order_by`.
+16. Retrieve all **appointments where the doctor's specialization is "Dermatology"** using `select_related` and `filter`.
+17. Find **patients who had an appointment but no surgery** using `difference`.
+18. Retrieve **all head doctors of departments** using `select_related`.
+19. Count the **total number of surgeries** by **each department** using `annotate` and `Count`.
+20. Find **patients who had an appointment, a prescription, and a surgery** using `intersection`.
+21. Retrieve **prescriptions written in the last 7 days** using `filter` and `Q`.
+22. Get all **insurance providers that cover more than 5 patients** using `values` and `annotate`.
+23. Find all **doctors who have prescribed at least 10 medicines** using `annotate` and `Count`.
+24. Retrieve **all patients whose last name starts with 'S'** using `filter`.
+25. Count the **number of male and female patients** using `annotate`.
+26. Find **the doctor who has performed the most surgeries** using `annotate` and `order_by`.
+27. Get **appointments where the patient has visited the same doctor more than once** using `annotate` and `filter`.
+28. List all **departments along with the number of surgeries performed** using `annotate`.
+29. Retrieve **appointments where the patient and doctor are the same gender** using `F`.
+30. Count the **number of doctors with more than 3 specializations** using `Count`.
+31. Find all **patients who do not have a phone number** using `exclude`.
+32. Retrieve the **top 5 doctors with the highest number of patients** using `annotate`.
+33. Get **departments that have at least 10 doctors** using `annotate` and `filter`.
+34. Find **patients who had a surgery but no prescriptions** using `difference`.
+35. Retrieve **the most prescribed medicine** using `values`, `annotate`, and `Count`.
+
+These cover **all advanced Django ORM techniques** with **complex queries**! 🚀 Let me know if you need explanations.

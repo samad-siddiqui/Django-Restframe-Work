@@ -1,5 +1,5 @@
 from django.db import models
-# from PIL import Image
+from PIL import Image
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 from .manager import CustomUserManager
 
@@ -42,9 +42,9 @@ class Profile(models.Model):
     ]
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
     bio = models.TextField(max_length=500, blank=True, null=True)
-    # image = models.ImageField(
-    #     default='default.jpg', blank=True,
-    #     upload_to='profile_pics/')
+    image = models.ImageField(
+        default='default.jpg', blank=True,
+        upload_to='profile_pics/')
 
     contact = models.IntegerField(blank=True, null=True)
 
@@ -54,13 +54,13 @@ class Profile(models.Model):
     def __str__(self):
         return f'{self.user.username}'
 
-    # def save(self, *args, **kwargs):
-    #     super().save(*args, **kwargs)
-    #     img = Image.open(self.image.path)
-    #     if img.height > 300 or img.width > 300:
-    #         output_size = (300, 300)
-    #         img.thumbnail(output_size)
-    #         img.save(self.image.path)
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        img = Image.open(self.image.path)
+        if img.height > 300 or img.width > 300:
+            output_size = (300, 300)
+            img.thumbnail(output_size)
+            img.save(self.image.path)
 
 
 class Project(models.Model):
@@ -97,6 +97,10 @@ class Task(models.Model):
         Profile, on_delete=models.SET_NULL,
         null=True, blank=True, related_name="tasks")
 
+    assigned_by = models.ForeignKey(CustomUser, null=True,
+                                    on_delete=models.SET_NULL,
+                                    related_name='assigned_tasks')
+
     def __str__(self):
         return self.title
 
@@ -127,3 +131,37 @@ class Comment(models.Model):
 
     def __str__(self):
         return f"{self.author.email} - {self.task.title}"
+
+
+class TimelineEvent(models.Model):
+    ACTION_CHOICES = [
+        ('task_created', 'Task Created'),
+        ('task_updated', 'Task Updated'),
+        ('comment_added', 'Comment Added'),
+        ('document_uploaded', 'Document Uploaded'),
+    ]
+
+    project = models.ForeignKey(Project, on_delete=models.CASCADE,
+                                related_name='timeline_events')
+    user = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True)
+    action = models.CharField(max_length=50, choices=ACTION_CHOICES)
+    description = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.action} by {self.user.email} on {self.created_at}"
+
+
+class Notification(models.Model):
+    user = models.ForeignKey(CustomUser,
+                             on_delete=models.CASCADE,
+                             related_name='notifications')
+    message = models.CharField(max_length=255)
+    read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Notification for {self.user.username} - {self.message}"
+
+    class Meta:
+        ordering = ['-created_at']
