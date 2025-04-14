@@ -139,6 +139,7 @@ class TimelineEvent(models.Model):
         ('task_updated', 'Task Updated'),
         ('comment_added', 'Comment Added'),
         ('document_uploaded', 'Document Uploaded'),
+        ('project_overdue', 'Project Overdue'),
     ]
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE,
