@@ -12,7 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 import os
 from pathlib import Path
 from datetime import timedelta
-from celery.schedules import crontab
+from celery.schedules import crontab, timedelta
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -112,7 +112,7 @@ DATABASES = {
         'NAME': os.getenv('DB_NAME', 'postgres1'),
         'USER': os.getenv('DB_USER', 'postgres'),
         'PASSWORD': os.getenv('DB_PASSWORD', 'samad123'),
-        'HOST': os.getenv('DB_HOST', 'db'),  # Matches the service name in docker-compose.yml
+        'HOST': os.getenv('DB_HOST', 'db'),
         'PORT': os.getenv('DB_PORT', '5432'),
     }
 }
@@ -201,12 +201,16 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 
 # celery settings
-CELERY_BROKER_URL = 'redis://localhost:6379/0'
+# CELERY_BROKER_URL = 'redis://redis:6379/0'
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL')
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND')
 CELERY_TIMEZONE = 'UTC'
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
-CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+# CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+# CELERY_RESULT_BACKEND = 'redis://redis:6379/0'
+
 # Ensure Celery tasks run in the same timezone as Django
 CELERY_ENABLE_UTC = True
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
@@ -216,4 +220,9 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'projects.tasks.check_overdue_projects',
         'schedule': crontab(hour=0, minute=0),  # Daily at midnight
     },
+    'print-heartbeat': {
+        'task': 'home.tasks.print_heartbeat',
+        'schedule': timedelta(seconds=6),  # Every minute
+    },
 }
+# CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'

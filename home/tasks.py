@@ -1,6 +1,13 @@
 from celery import shared_task
 from django.utils import timezone
 from .models import Project, Notification, TimelineEvent
+from datetime import datetime
+
+
+@shared_task
+def print_heartbeat():
+    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    print(f"[{now}] 🟢 Celery is alive.")
 
 
 @shared_task
@@ -77,3 +84,5 @@ def check_overdue_projects():
     }
 
     return result
+
+
