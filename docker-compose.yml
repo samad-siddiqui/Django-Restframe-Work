@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   web:
     build: .
@@ -13,8 +11,8 @@ services:
     environment:
       - DB_NAME=postgres1
       - DB_USER=postgres
-      - DB_PASSWORD=****123
-      - DB_HOST=db
+      - DB_PASSWORD=samad123
+      - DB_HOST=db  # Matches the service name of the PostgreSQL container
       - DB_PORT=5432
     depends_on:
       - db
@@ -27,6 +25,11 @@ services:
       POSTGRES_PASSWORD: samad123
     volumes:
       - postgres_data:/var/lib/postgresql/data/
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
 volumes:
   postgres_data:
